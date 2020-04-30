@@ -1,8 +1,12 @@
 #!/bin/sh
-
 set -e
 
-PACKAGE=com.example.progress
-SOURCE=`echo $PACKAGE | tr . /` # Convert the package name into a file path 
-javac -cp $LIB_DIR/rationals.jar $SOURCE/*.java
-jar cfe progress.jar $PACKAGE.YearProgress -C $TMP_DIR . $SOURCE/*.class
+SOURCE=com/example/progress
+
+if [ -n "$MY_LIB_DIR" ]; then
+    javac -cp $MY_LIB_DIR/rationals.jar $SOURCE/*.java
+    jar cf progress.jar $SOURCE/*.class
+else
+    echo "ERROR: \$MY_LIB_DIR not set"
+    exit 1    
+fi
