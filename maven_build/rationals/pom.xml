@@ -24,9 +24,9 @@
   </dependencies>
 
   <build>
-    <pluginManagement><!-- lock down plugins versions to avoid using Maven defaults (may be moved to parent pom) -->
+    <pluginManagement><!-- lock down plugins versions to avoid using Maven defaults. -->
       <plugins>
-        <plugin>  <!-- This was not the standard version specified in the archetype, I've changed it to use Java 11 -->
+        <plugin>  <!-- Use Java 11 -->
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
           <version>3.8.0</version>
@@ -34,7 +34,7 @@
             <release>11</release>
           </configuration>
         </plugin> 
-        <plugin>
+        <plugin> <!-- Use a newer version of the  urefire unit test plugin than standard. -->
           <artifactId>maven-surefire-plugin</artifactId>
           <version>2.22.1</version>
         </plugin>

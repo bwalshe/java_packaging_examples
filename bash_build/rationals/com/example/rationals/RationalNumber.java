@@ -1,11 +1,11 @@
 package com.example.rationals;
 
 public final class RationalNumber {
-    private int _numerator;
-    private int _denominator;
+    private final int _numerator;
+    private final int _denominator;
 
     public RationalNumber(int numerator, int denominator) {
-        if ( denominator == 0){
+        if (denominator == 0){
             throw new IllegalArgumentException("Denominator must be non-zero!");
         }
         int commonFactor = gcd(numerator, denominator);
@@ -30,7 +30,7 @@ public final class RationalNumber {
     }
 
     public double numericValue() {
-        return _numerator/ (double) _denominator;
+        return _numerator / (double) _denominator;
     }
 
     public RationalNumber add(RationalNumber other) {

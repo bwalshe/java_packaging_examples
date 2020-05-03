@@ -11,7 +11,7 @@ public final class RationalNumberTest {
     private static final int DENOMINATOR = 7;
 
     @Test
-    public void testConstructor() {
+    public void testConstructorTest() {
         RationalNumber n = new RationalNumber(NUMERATOR, DENOMINATOR);
         testRational(n, NUMERATOR, DENOMINATOR);
     }
@@ -49,7 +49,7 @@ public final class RationalNumberTest {
         RationalNumber n2 = new RationalNumber(1, 2);
         RationalNumber n3 = new RationalNumber(1, 3);
 
-        assertTrue(n1.equals(n2));
+        assertEquals(n1, n2);
         assertTrue(!n1.equals(n3));
     }
 
