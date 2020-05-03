@@ -149,13 +149,14 @@ There's actually a few things going on in the above script. First of all it uses
 
 This is starting to get pretty complicated. It works in our case, but I'm not actually sure that you can always just unzip the jars and add the class files like this. There's probably a bunch of other things you need to do if you want it to work properly, but TBH I haven't really worked with `javac`/`jar` directly from the command-line in almost 20 years. I always use something like Maven to do this stuff.
 
-## Some Issues with using the command like tools directly 
+## Some Issues with using the command line tools directly 
 Using bash worked, but even in this simple project there were a few issues. These include
 * **Mixing up the main and test source files:** Both `RationalNumber.java` and `RationalNumberTests.java` are in the same directory. I did this because they are in the same package and having them in the same directory made it easier to compile and run them during development. In a small project like this it's not a big deal, but in a big project this can get very cluttered.
 * **Bad management of `.class` files:** After the build script is finished, the intermediary `.class` files are left in the directory right beside the `.java` files. This is pretty bad - aside from cluttering up the folder, it also leads to the possibility that one of these files might get checked into the source repository or some other mistake like that. Really, humans don't care about `.class` files so they should be kept hidden away somewhere.
 * **Bad management of tests:** If you look in `RationalTests.java` you'll see that there are seven tests, but if you look at the output when it is executed, you will see that only six tests are actually run. The multiplication test never runs! This is because - with the way I have implemented the test class - I need to explicitly invoke each test method from `main()` and I forgot to do this for `testMultiply()`.
 * **The install script has extra logic** If someone wants to understand how my project works they are going to have to spend time learning how the install scripts work, in addition to understanding the Java code. In a real project the build script would likely get complicated as well.
 * **Manipulating .jar files is a nightmare** That last build script that unzipped a jar file so that its contents could be included in another jar was pretty nasty. A complex operation like that needs an extensive set of tests to ensure it is working correctly, and if I had to rewrite something like that for every project, it would incur a significant overhead.
+*  **Unnecessary classes were included in the .jars** If you take a look inside the jar files created by these build scripts, you'll see that I was a bit careless and the classes for the unit tests were included in the jar. These tests are completely unnecessary once the package is built, so they shouldn't be included in the jar artefacts that get shipped.
 * **No versioning:** This is a bit more subtle, but right now the build has no concept of a version. Suppose I had several projects that depended on `RationalNumber`, and in particular they used the `RationalNumber::numericValue` method. Now suppose that for some reason I decided that `RationalNumber` should implement the `java.lang.Number` interface. This would mean that instead of `numericValue()` I would have to implement `doubleValue()`, `floatValue()` etc. All the projects that depended on `RationalNumber` would break as soon as I ran its `install.sh` script.
 
 # Doing it in Maven
@@ -186,3 +187,57 @@ In this version of the rationals project the main code is the same but the tests
 The `junit` dependency allows us to write nicer tests. First of all it provides the `@Test` annotation which allows us to explicitly specify which methods should be considered "test methods", instead of relying on surefire to pick them up based on their names. The second thing `junit` gives us is a set of assertion methods that we can use to check values are what we expect them to be.
 
 When adding `junit` as a dependency, I specified that it was in the "test" scope. This means that only classes in the test folder can reference `junit`. e.g I couldn't use `assertEquals` in my main code. In addition, `junit` will not be included in any `.jar` files that the project produces. 
+
+## The Progress project
+The structure of the progress project is pretty similar to the rationals, so I'm just going to cover the interesting bits here. The full `pom.xml` is available [here](./maven_build/progress/pom.xml)
+
+The first thing worth noting is that this project has the rationals as a dependency. We do this by referencing the full `groupId`, `artifactId` **and** `version`. If a new version of the rationals project is ever released, it's not going to affect this one. NB. because the rationals package hasn't been released publicly, you will have to run `mvn install` for the project before you can add it as a dependency here. 
+
+```xml
+<dependencies>
+  <dependency>
+    <groupId>com.example</groupId>
+    <artifactId>rationals</artifactId>
+    <version>1.0-SNAPSHOT</version>
+  </dependency>
+  ...
+</dependencies>
+```
+
+The other interesting thing about this project is that it uses a plugin to take care of creating an executable jar which includes all the relevant dependencies. There are actually several plugins available which can do this, with the main distinction between them being how much control you have over their behaviour. The more simple plugins have less to configure, so it *kind of* makes sense that there are multiple ones that do basically the same thing. I went with `maven-assembly-plugin`.
+This one is a bit tricky so let's look at it in detail.
+
+```xml
+<plugins>
+  <plugin>
+    <groupId>org.apache.maven.plugins</groupId>
+    <artifactId>maven-assembly-plugin</artifactId>
+    <executions>
+      <execution>
+        <phase>package</phase>
+        <goals>
+          <goal>single</goal>
+        </goals>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>
+                com.example.progress.YearProgress
+              </mainClass>
+            </manifest>
+          </archive>
+          <descriptorRefs>
+            <descriptorRef>jar-with-dependencies</descriptorRef>
+          </descriptorRefs>
+        </configuration>
+      </execution>
+    </executions>
+  </plugin>
+</plugins>
+```
+
+This plugin has one *execution* - one action that it's going to do. It'll execute during the `package` phase, which is basically the phase after everything gets tested, and it will run a goal called "single". The phase name is a maven thing, but the goal names are particular to each plugin. In the case of the maven assembly plugin, it only understands one goal, but some plugins have many different goals. If you are wondering the goal is called "single" because it wraps everything up in a single file.
+
+In this project set two arguments when calling the `single` goal - we set `archive.manifest.mainClass` to "com.example.YearProgress", which majes the jar executable - and we tell it to use the "jar-with-dependencies" descriptor-ref. The descriptor-ref are pre configured templates for constructing files for a project. Jar-with-dependencies tells the assembly plugin to construct a jar with all the relevant classes included. Another descriptor-ref you might see is "src" which will create a source archive for your project. 
+
+One tricky thing you might notice is that this plugin went in the `build.plugins` section of the POM, but the compiler and surefire plugins were included in the `build.pluginManagement.plugins` section. This is because `build.pluginManagement.plugins` is used for setting the parameters on plugins that are already included in the project, but `build.plugins` is for **adding** a new plugin to the project. The compiler and surefire plugins are included in every project by default, but the assembly plugin had to be added. This distinction doesn't make much sense in the case of a small project like this, but in larger projects which include sub-projects this can be helpful for keeping all the plugins under control. 
