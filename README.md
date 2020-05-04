@@ -8,20 +8,34 @@ Once I have finished talking about the use of bash to manage the projects, I wil
 
 This document assumes that you know how to compile Java source code without using and IDE, you know what the Java class path is, and you have at least some familiarity with `.jar` files. If you are unsure of these subjects, please read up on them [here](java_package_basics.md)
 
-# The projects
-I am going to use two very simple and very contrived projects to show the steps that are necessary to package something up so that it can be used elsewhere. The first project provides a class `RationalNumber` for working with numbers that consist of an integer numerator and denominator. This class allows arithmetic operations such as addition and multiplication to be performed on rationals, and it ensures that when they are printed they are done in a normalised way - eg that 2/4 will be rendered as 1/2. 
+# The `rationals` project
+The first project provides a class `RationalNumber` for working with numbers that consist of an integer numerator and denominator. This class allows arithmetic operations such as addition and multiplication to be performed on rational numbers. The `RationalNumber` class is used as follows: 
 
-(TODO: Describe the `RationalNumber` class and how it could be used.)
+```java
+RationalNumber a = new RationalNumber(7, 21);
+RationalNumber b = new RationalNumber(1, 6);
+RationalNumber c = new RtaionalNumber(1, 2);
 
-The second project is a simple command line tool that tells the user how far they are through the year. It uses the `RationalNumber` number class form the first project to render the amount in a neat way - for example, the 5th of January is 1/73 of the way through an non-leap year. (TODO: Make it clear that this project just exists so we can demonstrate including another project.)
+System.out.println(a);  // prints "1/3"
+a.plus(b).equals(c);    // evaluates to true
+```
 
-# Doing things in bash
+Internally the numerator and denominator are represented by two integers which we normalise to make sure they are always coprime. So if we were to create create the rational number `2/4`, internally it would be represented using the numerator `1` and the denominator `2`. Aside from allowing us to print the numbers neatly, it makes testing equality much easier. 
+
+The functionality implemented in the `RationalNumber` class is tricky, so the project also includes a set of tests in class `RationalNumberTests` to verify that everything is behaving as it should. We want to run these tests when we package `RationalNumber` to ensure we don't release something that doesn't work, but the consumers of the package are never going to run those tests themselves, so we probably don't want to include them in the released package.
+
+# The `progress` project
+The second project is a simple command line tool that tells the user how far they are through the year. It uses the `RationalNumber` number class form the first project to render the amount in a neat way - for example, the 5th of January is 1/73 of the way through an non-leap year. 
+
+The key difference between the `progress` and `rationals` projects are that while `rationals` is intended to be used as a library by other projects, `progress` is intended to be distributed to end-users so that they can run it themselves on demand.
+With `rationals` we want the package to be available in a central location where it can be picked up and combined with other libraries. With `progress` we need to make sure that the package contains everything needed for the user to run it. 
+
+
+# Managing the projects with bash scripts
 Both of these projects are fairly simple, with only one class each so it's feasible to manage them using some simple bash scripts.
 
 ## Rational Number Project
-The bash version of the Rational Number project is located in `./bash_build/rationals/`. This project contains an implementation of the `RationalNumber` class which allows us to do algebra with fractions. Some of the operations like addition and multiplication are a bit tricky, so I've included tests to make sure that they are implemented correctly. These tests are in the `RationalNumberTests` class which includes a main method so we can run it and check that everything is correct before we package up the `RationalNumber` class in a `.jar` so it can be included in some other project.
-
-In this version of the class both the implementation and the tests are located in the same directory because it makes it easier to compile and run them. Let's do that now from the command line.
+The bash version of the Rational Number project is located in [./bash_build/rationals/](./bash_build/rationals/). In this version of the project, both `RationalNumber` and `RationalNumber` are located in the same directory so that it is easy to compile and run them together. Let's do that now from the command line.
 
 ```
 > cd bash_build/rationals/
@@ -34,13 +48,13 @@ PASS: Addition
 PASS: Equality
 ```
 
-Packaging up the jar is pretty easy:
+Packaging up the jar is also pretty easy:
 ```
 > jar cf rationals.jar com/example/rationals/*.class
 ```
 This grabs all the files located in `com/example/rationals/*.class` and puts them in the `rationals.jar` file. If you are not familiar with compiling and packaging from the command line, check [this](java_package_basics.md) out.
 
-## Building and Installing the package
+# Building and Installing the package
 The steps above are more or less the whole packaging process. If we want to automate it we will need somthing that will:
 1. Compile the code.
 1. Run the tests
@@ -89,8 +103,8 @@ cp rationals.jar $MY_LIB_DIR
 
 This started out pretty simple, but it's starting to get a bit complicated and it's still pretty fragile. This is a really simple project as well, so you can imagine how bad it could get in a real project.
 
-## Using the `RationalNumber` class in another project.
-The `progress` project is fairly contrived, it only really exists as an example of a project that depends on work developed in another project. Another key difference is that this project doesn't produce a library, it produces an executable which users will run directly. When we package this up we want it to be as self contained as possible, but that is going to be tricky because of its dependency on the `rationals` package.
+## The `progress` project
+The `progress` project is fairly contrived, it only really exists as an example of a project that depends on work developed in another project. As stated earlier, a key difference between this project and `rationals` is that it does not produce a library, it produces an executable which users will run directly. When we package `progress` up, we want it to be as self contained as possible. Unfortunately, this is going to be tricky because of the dependency on the `rationals` package.
 
 Let's try just building a jar.
 
@@ -108,22 +122,22 @@ javac -cp $MY_LIB_DIR/rationals.jar $SOURCE/*.java
 jar cf progress.jar $SOURCE/*.class
 ```
 
-This is really similar to the previous build script - compile the classes and put them in a jar file. The only big difference was that we had to add `rationals.jar` to the class path when we did the compile. The big problem here is that if a user want's to run this they are also going to have to include `rationals.jar` on their class path by invoking it as follows
+This is really similar to the previous build script - compile the classes and put them in a jar file. The only big difference was that we had to add `rationals.jar` to the class path when we did the compile. The big problem here is that if a user wants to run this they are also going to have to include `rationals.jar` on their class path by invoking it as follows
 
 ```bash
 java -cp $MY_LIB_DIR/rationals.jar:progress.jar com.example.progress.YearProgress
 ```
 
-We could wrap this up in a shell script, which would save the users some typing, but we are still going to have to find a way of making sure that anyone who tries to run the `YearProgress` class in the `progress.jar` file also has a copy of the `rationals.jar` file. Otherwise they are going to get an error like
+We could wrap this up in a shell script, which would save the users some typing, but we are still going to have to find a way of making sure that anyone who tries to run the `YearProgress` class in the `progress.jar` file also has a copy of the `rationals.jar` file. Otherwise they are going to get an error similar to the following:
 
 ```
 Error: Unable to initialize main class com.example.progress.YearProgress
 Caused by: java.lang.NoClassDefFoundError: com/example/rationals/RationalNumber
 ```
 
-Java has the option of creating *executable* jars - file that we could execute using `java -jar progress.jar`. That would be a lot neater then the above solution, but it comes with a catch - you can't add to the class path when using executable jars. So if we want to produce an executable jar that works in our situation, we will have to find a way to include **all** the necessary classes in the `.jar` file.
+Java has the option of creating *executable* jars - file that we could execute using `java -jar progress.jar`. That would be a lot neater then the above solution, but it comes with a catch - you can't add to the class path when using executable jars. So if we want to produce an executable jar that works for `progress`, we will have to find a way to include **all** the necessary classes in the `.jar` file.
 
-Luckily, `.jar` files are actually just zip files with a funny name. If we want we can unzip them and manipulate their contents just like we would a zip. In our case we could unzip the contents of `rationals.zip` into a temporary directory and then use those files when we construct the `progress.jar` file. That would look something like this:
+Luckily, `.jar` files are actually just zip files with a funny name. If we want, we can unzip them and manipulate their contents just like we would a regular zip. In our case we could unzip the contents of `rationals.zip` into a temporary directory and then use those files when we construct the `progress.jar` file. That would look something like this:
 
 ```bash
 #!/bin/bash
