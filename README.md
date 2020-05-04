@@ -8,7 +8,7 @@ Once I have finished talking about the use of bash to manage the projects, I wil
 
 This document assumes that you know how to compile Java source code without using and IDE, you know what the Java class path is, and you have at least some familiarity with `.jar` files. If you are unsure of these subjects, please read up on them [here](java_package_basics.md)
 
-# The `rationals` project
+## The `rationals` project
 The first project provides a class `RationalNumber` for working with numbers that consist of an integer numerator and denominator. This class allows arithmetic operations such as addition and multiplication to be performed on rational numbers. The `RationalNumber` class is used as follows: 
 
 ```java
@@ -24,17 +24,17 @@ Internally the numerator and denominator are represented by two integers which w
 
 The functionality implemented in the `RationalNumber` class is tricky, so the project also includes a set of tests in class `RationalNumberTests` to verify that everything is behaving as it should. We want to run these tests when we package `RationalNumber` to ensure we don't release something that doesn't work, but the consumers of the package are never going to run those tests themselves, so we probably don't want to include them in the released package.
 
-# The `progress` project
+## The `progress` project
 The second project is a simple command line tool that tells the user how far they are through the year. It uses the `RationalNumber` number class form the first project to render the amount in a neat way - for example, the 5th of January is 1/73 of the way through an non-leap year. 
 
 The key difference between the `progress` and `rationals` projects are that while `rationals` is intended to be used as a library by other projects, `progress` is intended to be distributed to end-users so that they can run it themselves on demand.
 With `rationals` we want the package to be available in a central location where it can be picked up and combined with other libraries. With `progress` we need to make sure that the package contains everything needed for the user to run it. 
 
 
-# Managing the projects with bash scripts
-Both of these projects are fairly simple, with only one class each so it's feasible to manage them using some simple bash scripts.
+# Managing the projects in bash
+Let's take a look at how we could potentially manage these projects using some bash scripts.
 
-## Rational Number Project
+## Managing `rationals` with bash
 The bash version of the Rational Number project is located in [./bash_build/rationals/](./bash_build/rationals/). In this version of the project, both `RationalNumber` and `RationalNumber` are located in the same directory so that it is easy to compile and run them together. Let's do that now from the command line.
 
 ```
@@ -54,7 +54,7 @@ Packaging up the jar is also pretty easy:
 ```
 This grabs all the files located in `com/example/rationals/*.class` and puts them in the `rationals.jar` file. If you are not familiar with compiling and packaging from the command line, check [this](java_package_basics.md) out.
 
-# Building and Installing the package
+### Building and Installing the package
 The steps above are more or less the whole packaging process. If we want to automate it we will need somthing that will:
 1. Compile the code.
 1. Run the tests
@@ -103,7 +103,7 @@ cp rationals.jar $MY_LIB_DIR
 
 This started out pretty simple, but it's starting to get a bit complicated and it's still pretty fragile. This is a really simple project as well, so you can imagine how bad it could get in a real project.
 
-## The `progress` project
+## Managing the `progress` project with bash
 The `progress` project is fairly contrived, it only really exists as an example of a project that depends on work developed in another project. As stated earlier, a key difference between this project and `rationals` is that it does not produce a library, it produces an executable which users will run directly. When we package `progress` up, we want it to be as self contained as possible. Unfortunately, this is going to be tricky because of the dependency on the `rationals` package.
 
 Let's try just building a jar.
@@ -163,7 +163,7 @@ There's actually a few things going on in the above script. First of all it uses
 
 This is starting to get pretty complicated. It works in our case, but I'm not actually sure that you can always just unzip the jars and add the class files like this. There's probably a bunch of other things you need to do if you want it to work properly, but TBH I haven't really worked with `javac`/`jar` directly from the command-line in almost 20 years. I always use something like Maven to do this stuff.
 
-## Some Issues with using the command line tools directly 
+## Problems We Observed in the Above Projects 
 Using bash worked, but even in this simple project there were a few issues. These include
 * **Mixing up the main and test source files:** Both `RationalNumber.java` and `RationalNumberTests.java` are in the same directory. I did this because they are in the same package and having them in the same directory made it easier to compile and run them during development. In a small project like this it's not a big deal, but in a big project this can get very cluttered.
 * **Bad management of `.class` files:** After the build script is finished, the intermediary `.class` files are left in the directory right beside the `.java` files. This is pretty bad - aside from cluttering up the folder, it also leads to the possibility that one of these files might get checked into the source repository or some other mistake like that. Really, humans don't care about `.class` files so they should be kept hidden away somewhere.
@@ -173,7 +173,7 @@ Using bash worked, but even in this simple project there were a few issues. Thes
 *  **Unnecessary classes were included in the .jars** If you take a look inside the jar files created by these build scripts, you'll see that I was a bit careless and the classes for the unit tests were included in the jar. These tests are completely unnecessary once the package is built, so they shouldn't be included in the jar artefacts that get shipped.
 * **No versioning:** This is a bit more subtle, but right now the build has no concept of a version. Suppose I had several projects that depended on `RationalNumber`, and in particular they used the `RationalNumber::numericValue` method. Now suppose that for some reason I decided that `RationalNumber` should implement the `java.lang.Number` interface. This would mean that instead of `numericValue()` I would have to implement `doubleValue()`, `floatValue()` etc. All the projects that depended on `RationalNumber` would break as soon as I ran its `install.sh` script.
 
-# Doing it in Maven
+# Managing the Projects in Maven
 Now that we know the steps that are required to manually build/install/run these projects, let's do it again using Maven. If you've cloned the repo you can find the maven versions of these projects in the `maven_build` directory. Maven is an opinionated piece of software, so there are a few changes we have to make to get our projects to work with it. Let's look at each of them.
 
 ## The Rationals Project
